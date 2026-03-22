@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRunOnSuccessfulFinish } from 'utils/common-hooks';
+import { useCallback, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router';
 import Badge from 'components/Badge';
@@ -14,76 +13,48 @@ import { WidgetButtonProps } from 'components/WidgetButtons';
 import TokenStatusBadge from 'components/_pages/tokens/TokenStatusBadge';
 import { LockWidgetNameEnum } from 'types/user-interface';
 import TokenActivationDialogBody from '../TokenActivationDialogBody';
+import { useListPageState } from 'utils/use-list-page-state';
 
 function TokenList() {
     const dispatch = useDispatch();
-
-    const checkedRows = useSelector(selectors.checkedRows);
     const tokens = useSelector(selectors.tokens);
 
-    const isFetching = useSelector(selectors.isFetchingList);
-    const isDeleting = useSelector(selectors.isDeleting);
-    const isUpdating = useSelector(selectors.isUpdating);
-    const isBulkDeleting = useSelector(selectors.isBulkDeleting);
-    const isCreating = useSelector(selectors.isCreating);
-    const createTokenSucceeded = useSelector(selectors.createTokenSucceeded);
-    const updateTokenSucceeded = useSelector(selectors.updateTokenSucceeded);
+    const {
+        checkedRows,
+        isBusy,
+        confirmDelete,
+        setConfirmDelete,
+        isAddModalOpen,
+        editingEntityId,
+        getFreshData,
+        handleOpenFormModal,
+        handleCloseFormModal,
+        onDeleteConfirmed,
+        setCheckedRows,
+    } = useListPageState({
+        selectors: {
+            checkedRows: selectors.checkedRows,
+            isFetchingList: selectors.isFetchingList,
+            isDeleting: selectors.isDeleting,
+            isBulkDeleting: selectors.isBulkDeleting,
+            isCreating: selectors.isCreating,
+            isUpdating: selectors.isUpdating,
+            createSucceeded: selectors.createTokenSucceeded,
+            updateSucceeded: selectors.updateTokenSucceeded,
+        },
+        actions: {
+            setCheckedRows: actions.setCheckedRows,
+            list: actions.listTokens,
+            bulkDelete: actions.bulkDeleteToken,
+            clearDeleteErrorMessages: actions.clearDeleteErrorMessages,
+        },
+    });
 
-    const isBusy = isFetching || isDeleting || isUpdating || isBulkDeleting;
-
-    const [confirmDelete, setConfirmDelete] = useState(false);
+    // Token-specific state
     const [confirmDeactivation, setConfirmDeactivation] = useState<boolean>(false);
     const [activateToken, setActivateToken] = useState<boolean>(false);
-    const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
-    const [editingTokenId, setEditingTokenId] = useState<string | undefined>(undefined);
-
-    const getFreshData = useCallback(() => {
-        dispatch(actions.setCheckedRows({ checkedRows: [] }));
-        dispatch(actions.clearDeleteErrorMessages());
-        dispatch(actions.listTokens());
-    }, [dispatch]);
-
-    useEffect(() => {
-        getFreshData();
-    }, [getFreshData]);
-
-    useRunOnSuccessfulFinish(isCreating, createTokenSucceeded, () => {
-        setIsAddModalOpen(false);
-        getFreshData();
-    });
-    useRunOnSuccessfulFinish(isUpdating, updateTokenSucceeded, () => {
-        setEditingTokenId(undefined);
-        getFreshData();
-    });
-
-    const handleOpenAddModal = useCallback(() => {
-        setIsAddModalOpen(true);
-    }, []);
-
-    const handleCloseAddModal = useCallback(() => {
-        setIsAddModalOpen(false);
-        setEditingTokenId(undefined);
-    }, []);
-
-    const onAddClick = useCallback(() => {
-        handleOpenAddModal();
-    }, [handleOpenAddModal]);
-
-    const setCheckedRows = useCallback(
-        (rows: (string | number)[]) => {
-            dispatch(actions.setCheckedRows({ checkedRows: rows as string[] }));
-        },
-        [dispatch],
-    );
-
-    const onDeleteConfirmed = useCallback(() => {
-        setConfirmDelete(false);
-        dispatch(actions.clearDeleteErrorMessages());
-        dispatch(actions.bulkDeleteToken({ uuids: checkedRows }));
-    }, [dispatch, checkedRows]);
 
     const onDeactivationConfirmed = useCallback(() => {
-        if (!checkedRows) return;
         if (checkedRows.length !== 1) return;
 
         dispatch(actions.deactivateToken({ uuid: checkedRows[0] }));
@@ -96,7 +67,7 @@ function TokenList() {
                 icon: 'plus',
                 disabled: false,
                 tooltip: 'Create',
-                onClick: handleOpenAddModal,
+                onClick: handleOpenFormModal,
             },
             {
                 icon: 'trash',
@@ -123,7 +94,7 @@ function TokenList() {
                 },
             },
         ],
-        [checkedRows, handleOpenAddModal],
+        [checkedRows, handleOpenFormModal, setConfirmDelete],
     );
 
     const tokenRowHeader: TableHeader[] = useMemo(
@@ -250,11 +221,11 @@ function TokenList() {
             />
 
             <Dialog
-                isOpen={isAddModalOpen || !!editingTokenId}
-                toggle={handleCloseAddModal}
-                caption={editingTokenId ? 'Edit Token' : 'Create Token'}
+                isOpen={isAddModalOpen || !!editingEntityId}
+                toggle={handleCloseFormModal}
+                caption={editingEntityId ? 'Edit Token' : 'Create Token'}
                 size="xl"
-                body={<TokenForm tokenId={editingTokenId} onCancel={handleCloseAddModal} onSuccess={handleCloseAddModal} />}
+                body={<TokenForm tokenId={editingEntityId} onCancel={handleCloseFormModal} onSuccess={handleCloseFormModal} />}
             />
         </>
     );
