@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRunOnSuccessfulFinish } from 'utils/common-hooks';
-import { useDispatch, useSelector } from 'react-redux';
+import { useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import { Link } from 'react-router';
 
 import { actions, selectors } from 'ducks/certificateGroups';
@@ -11,69 +10,40 @@ import GroupForm from '../form';
 import Widget from 'components/Widget';
 import { WidgetButtonProps } from 'components/WidgetButtons';
 import { LockWidgetNameEnum } from 'types/user-interface';
+import { useListPageState } from 'utils/use-list-page-state';
 
 export default function GroupList() {
-    const dispatch = useDispatch();
-
-    const checkedRows = useSelector(selectors.checkedRows);
     const groups = useSelector(selectors.certificateGroups);
 
-    const isFetching = useSelector(selectors.isFetchingList);
-    const isDeleting = useSelector(selectors.isDeleting);
-    const isBulkDeleting = useSelector(selectors.isBulkDeleting);
-    const isUpdating = useSelector(selectors.isUpdating);
-    const isCreating = useSelector(selectors.isCreating);
-    const createGroupSucceeded = useSelector(selectors.createGroupSucceeded);
-    const updateGroupSucceeded = useSelector(selectors.updateGroupSucceeded);
-
-    const isBusy = isFetching || isDeleting || isUpdating || isBulkDeleting;
-
-    const [confirmDelete, setConfirmDelete] = useState<boolean>(false);
-    const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
-    const [editingGroupId, setEditingGroupId] = useState<string | undefined>(undefined);
-
-    const getFreshData = useCallback(() => {
-        dispatch(actions.setCheckedRows({ checkedRows: [] }));
-        dispatch(actions.listGroups());
-    }, [dispatch]);
-
-    useEffect(() => {
-        getFreshData();
-    }, [getFreshData]);
-
-    useRunOnSuccessfulFinish(isCreating, createGroupSucceeded, () => {
-        setIsAddModalOpen(false);
-        getFreshData();
-    });
-    useRunOnSuccessfulFinish(isUpdating, updateGroupSucceeded, () => {
-        setEditingGroupId(undefined);
-        getFreshData();
-    });
-
-    const handleOpenAddModal = useCallback(() => {
-        setIsAddModalOpen(true);
-    }, []);
-
-    const handleCloseAddModal = useCallback(() => {
-        setIsAddModalOpen(false);
-        setEditingGroupId(undefined);
-    }, []);
-
-    const onAddClick = useCallback(() => {
-        handleOpenAddModal();
-    }, [handleOpenAddModal]);
-
-    const onDeleteConfirmed = useCallback(() => {
-        dispatch(actions.bulkDeleteGroups({ uuids: checkedRows }));
-        setConfirmDelete(false);
-    }, [checkedRows, dispatch]);
-
-    const setCheckedRows = useCallback(
-        (rows: (string | number)[]) => {
-            dispatch(actions.setCheckedRows({ checkedRows: rows as string[] }));
+    const {
+        checkedRows,
+        isBusy,
+        confirmDelete,
+        setConfirmDelete,
+        isAddModalOpen,
+        editingEntityId,
+        getFreshData,
+        handleOpenFormModal,
+        handleCloseFormModal,
+        onDeleteConfirmed,
+        setCheckedRows,
+    } = useListPageState({
+        selectors: {
+            checkedRows: selectors.checkedRows,
+            isFetchingList: selectors.isFetchingList,
+            isDeleting: selectors.isDeleting,
+            isBulkDeleting: selectors.isBulkDeleting,
+            isCreating: selectors.isCreating,
+            isUpdating: selectors.isUpdating,
+            createSucceeded: selectors.createGroupSucceeded,
+            updateSucceeded: selectors.updateGroupSucceeded,
         },
-        [dispatch],
-    );
+        actions: {
+            setCheckedRows: actions.setCheckedRows,
+            list: actions.listGroups,
+            bulkDelete: actions.bulkDeleteGroups,
+        },
+    });
 
     const buttons: WidgetButtonProps[] = useMemo(
         () => [
@@ -81,7 +51,7 @@ export default function GroupList() {
                 icon: 'plus',
                 disabled: false,
                 tooltip: 'Create',
-                onClick: handleOpenAddModal,
+                onClick: handleOpenFormModal,
             },
             {
                 icon: 'trash',
@@ -92,7 +62,7 @@ export default function GroupList() {
                 },
             },
         ],
-        [checkedRows, handleOpenAddModal],
+        [checkedRows, handleOpenFormModal, setConfirmDelete],
     );
 
     const groupsTableHeaders: TableHeader[] = useMemo(
@@ -163,11 +133,11 @@ export default function GroupList() {
             />
 
             <Dialog
-                isOpen={isAddModalOpen || !!editingGroupId}
-                toggle={handleCloseAddModal}
-                caption={editingGroupId ? 'Edit Group' : 'Create Group'}
+                isOpen={isAddModalOpen || !!editingEntityId}
+                toggle={handleCloseFormModal}
+                caption={editingEntityId ? 'Edit Group' : 'Create Group'}
                 size="xl"
-                body={<GroupForm groupId={editingGroupId} onCancel={handleCloseAddModal} onSuccess={handleCloseAddModal} />}
+                body={<GroupForm groupId={editingEntityId} onCancel={handleCloseFormModal} onSuccess={handleCloseFormModal} />}
             />
         </>
     );
