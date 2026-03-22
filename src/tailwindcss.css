@@ -25,7 +25,7 @@
 
     --primary-blue-color: #0073cf;
     --header-height: 68px;
-    --sidebar-width: 84px;
+    --sidebar-width: 0px;
     --main-background-color: #f8fafc;
     --dark-gray-color: #1f2937;
     --tooltip-background-color: #111827;
@@ -35,11 +35,17 @@
     --status-secondary-color: #b4b4b4;
     --status-warning-color: #eab308;
     --status-dark-color: var(--dark-gray-color);
-    --status-light-gray-color: var(--gray-300);
+    --status-light-gray-color: var(--color-gray-300);
     --status-gray-color: var(--color-gray-500);
     --status-info-color: #2798e7;
-    --modal-footer-background-color: var(--gray-100);
+    --modal-footer-background-color: var(--color-gray-100);
     --code-color: #be185d;
+}
+
+@media (min-width: 768px) {
+    :root {
+        --sidebar-width: 84px;
+    }
 }
 
 @import 'tailwindcss';

@@ -13,7 +13,8 @@ import { selectors } from 'ducks/auth';
 function Layout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
-    const toggleSidebar = useCallback(() => setSidebarOpen(!sidebarOpen), [sidebarOpen]);
+    const toggleSidebar = useCallback(() => setSidebarOpen((prev) => !prev), []);
+    const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
     const profile = useSelector(selectors.profile);
 
@@ -21,7 +22,8 @@ function Layout() {
         <div className="flex flex-col min-h-screen">
             <Header sidebarToggle={toggleSidebar} />
             <div className="flex">
-                <Sidebar allowedResources={profile?.permissions.allowedListings} />
+                <Sidebar allowedResources={profile?.permissions.allowedListings} mobileOpen={sidebarOpen} onMobileClose={closeSidebar} />
+
                 <main className="flex flex-col bg-[var(--main-background-color)] w-[calc(100%-var(--sidebar-width))] p-4 md:p-8 !pb-0 dark:bg-gray-900">
                     <ErrorBoundary>
                         <Outlet />

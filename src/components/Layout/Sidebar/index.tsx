@@ -1,5 +1,6 @@
 import { Resource } from 'types/openapi';
-import { useMemo, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { useLocalStorage } from 'usehooks-ts';
 import cn from 'classnames';
@@ -27,7 +28,7 @@ import SimpleBar from 'simplebar-react';
 
 type MenuItemMapping = {
     _key: string;
-    icon?: React.ReactNode;
+    icon?: ReactNode;
     header: string;
     requiredResources?: Resource[];
 } & (
@@ -340,8 +341,10 @@ function getAllowedMenuItems(allowedResources?: Resource[]): MenuItemMapping[] {
 
 type Props = {
     allowedResources?: Resource[];
+    mobileOpen: boolean;
+    onMobileClose: () => void;
 };
-export default function Sidebar({ allowedResources }: Props) {
+export default function Sidebar({ allowedResources, mobileOpen, onMobileClose }: Props) {
     const [defaultMenuSize, setDefaultMenuSize] = useLocalStorage<'small' | 'large'>('menu-size', 'small');
     const [menuSize, setMenuSize] = useState<'small' | 'large' | 'flying'>(defaultMenuSize);
     const location = useLocation();
@@ -360,7 +363,18 @@ export default function Sidebar({ allowedResources }: Props) {
 
     useEffect(() => {
         if (menuSize === 'flying') return;
-        document.documentElement.style.setProperty('--sidebar-width', menuSize === 'small' ? '84px' : '260px');
+
+        const updateSidebarWidth = () => {
+            if (window.innerWidth < 768) {
+                document.documentElement.style.setProperty('--sidebar-width', '0px');
+            } else {
+                document.documentElement.style.setProperty('--sidebar-width', menuSize === 'small' ? '84px' : '260px');
+            }
+        };
+
+        updateSidebarWidth();
+        window.addEventListener('resize', updateSidebarWidth);
+        return () => window.removeEventListener('resize', updateSidebarWidth);
     }, [menuSize]);
 
     useEffect(() => {
@@ -369,6 +383,22 @@ export default function Sidebar({ allowedResources }: Props) {
         }
     }, [menuSize, activeSectionKey]);
 
+    const prevPathnameRef = useRef(location.pathname);
+    useEffect(() => {
+        if (prevPathnameRef.current === location.pathname) return;
+        prevPathnameRef.current = location.pathname;
+        if (mobileOpen) onMobileClose();
+    }, [location.pathname, mobileOpen, onMobileClose]);
+
+    useEffect(() => {
+        if (!mobileOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onMobileClose();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [mobileOpen, onMobileClose]);
+
     function toggleMenuSize() {
         const newMenuSize = menuSize === 'small' ? 'large' : 'small';
         setMenuSize(newMenuSize);
@@ -376,21 +406,21 @@ export default function Sidebar({ allowedResources }: Props) {
         setDefaultMenuSize(newMenuSize);
     }
 
-    function renderMenuItem(mapping: MenuItemMapping) {
+    function renderMenuItem(mapping: MenuItemMapping, displaySize: 'small' | 'large' | 'flying' = menuSize) {
         if ('children' in mapping) {
             const childrenKeys = mapping.children.map((child) => child.link);
             const activePage = location.pathname;
             const isChildActive = childrenKeys.some((child) => child === activePage || activePage.startsWith(`${child}/`));
             const isActive = openMenuItems.includes(mapping._key);
             return (
-                <li key={mapping.header} className={cn('flex justify-center', { 'flex-col': menuSize != 'small' })}>
+                <li key={mapping.header} className={cn('flex justify-center', { 'flex-col': displaySize != 'small' })}>
                     <Button
                         variant="transparent"
                         className={cn('!px-4 !py-2 border-none justify-between h-[38px]', {
-                            'flex w-full items-center': menuSize != 'small',
+                            'flex w-full items-center': displaySize != 'small',
                         })}
                         onClick={() => {
-                            if (menuSize === 'small') {
+                            if (displaySize === 'small') {
                                 setMenuSize('flying');
                             }
                             setOpenMenuItems((prev) => (isActive ? prev.filter((item) => item !== mapping._key) : [...prev, mapping._key]));
@@ -400,9 +430,9 @@ export default function Sidebar({ allowedResources }: Props) {
                     >
                         <div className={cn('flex items-center gap-x-2', { 'text-blue-600': isChildActive })}>
                             {mapping.icon}
-                            <span className={cn('text-sm', { 'sr-only': menuSize === 'small' })}>{mapping.header}</span>
+                            <span className={cn('text-sm', { 'sr-only': displaySize === 'small' })}>{mapping.header}</span>
                         </div>
-                        {menuSize != 'small' && <ChevronDown strokeWidth={1.5} size={16} className={cn({ isActive: 'rotate-180' })} />}
+                        {displaySize != 'small' && <ChevronDown strokeWidth={1.5} size={16} className={cn({ isActive: 'rotate-180' })} />}
                     </Button>
                     <ul
                         className={cn(
@@ -432,26 +462,52 @@ export default function Sidebar({ allowedResources }: Props) {
                     className={({ isActive }) =>
                         cn('font-medium flex px-4 py-2 no-underline hover:bg-gray-200 rounded-lg h-[38px] items-center dark:text-white', {
                             'text-blue-600': isActive,
-                            'w-full gap-x-2': menuSize !== 'small',
+                            'w-full gap-x-2': displaySize !== 'small',
                         })
                     }
                 >
                     {mapping.icon}
-                    <span className={cn('text-sm font-medium', { 'sr-only': menuSize === 'small' })}>{mapping.header}</span>
+                    <span className={cn('text-sm font-medium', { 'sr-only': displaySize === 'small' })}>{mapping.header}</span>
                 </NavLink>
             </li>
         );
     }
     return (
         <>
+            {mobileOpen && (
+                <div className="md:hidden">
+                    <div
+                        className="fixed inset-0 top-[var(--header-height)] bg-black/50 z-40"
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Close sidebar"
+                        onClick={onMobileClose}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') onMobileClose();
+                        }}
+                    />
+                    <div
+                        role="navigation"
+                        aria-label="Mobile sidebar menu"
+                        className="fixed top-[var(--header-height)] left-0 h-[calc(100vh-var(--header-height))] bg-white shadow-lg w-[260px] z-50"
+                        data-testid="sidebar-mobile"
+                    >
+                        <SimpleBar forceVisible="y" style={{ height: '100%', width: '100%' }}>
+                            <nav className="p-4">
+                                <ul className="list-none m-0 flex flex-col gap-y-1">
+                                    {allowedMenuItems.map((item) => renderMenuItem(item, 'large'))}
+                                </ul>
+                            </nav>
+                        </SimpleBar>
+                    </div>
+                </div>
+            )}
+
             {menuSize === 'flying' && (
                 <div
                     role="region"
                     aria-label="Sidebar menu"
-                    className={cn(
-                        'fixed top-[var(--header-height)] left-0 h-[calc(100vh-var(--header-height))] bg-white shadow-lg w-[260px] z-50',
-                        {},
-                    )}
+                    className="hidden md:block fixed top-[var(--header-height)] left-0 h-[calc(100vh-var(--header-height))] bg-white shadow-lg w-[260px] z-50"
                     onMouseLeave={() => {
                         setMenuSize('small');
                         setOpenMenuItems([]);
@@ -471,37 +527,40 @@ export default function Sidebar({ allowedResources }: Props) {
                     </SimpleBar>
                 </div>
             )}
-            <SimpleBar
-                forceVisible="y"
-                style={{
-                    height: 'calc(100vh - var(--header-height))',
-                    width: 'var(--sidebar-width)',
-                    position: 'sticky',
-                    top: 'var(--header-height)',
-                    zIndex: 10,
-                }}
-                data-testid="sidebar-sticky"
-            >
-                <div className="p-4 w-full h-full dark:bg-neutral-900">
-                    <nav className="pb-4">
-                        <ul className="list-none m-0 flex flex-col gap-y-1">{allowedMenuItems.map((item) => renderMenuItem(item))}</ul>
-                    </nav>
 
-                    <hr className="border-gray-200" />
-                    <div className="flex justify-center pt-4">
-                        <Button
-                            variant="transparent"
-                            className={cn('inline-flex px-4 py-2 border-none', {
-                                'w-full gap-x-2': menuSize !== 'small',
-                            })}
-                            onClick={() => toggleMenuSize()}
-                        >
-                            <ArrowRightToLine strokeWidth={1} size={24} className={cn(menuSize === 'large' && 'rotate-180')} />
-                            <span className={cn({ 'sr-only': menuSize === 'small' })}>Collapse</span>
-                        </Button>
+            <div className="hidden md:block shrink-0">
+                <SimpleBar
+                    forceVisible="y"
+                    style={{
+                        height: 'calc(100vh - var(--header-height))',
+                        width: 'var(--sidebar-width)',
+                        position: 'sticky',
+                        top: 'var(--header-height)',
+                        zIndex: 10,
+                    }}
+                    data-testid="sidebar-sticky"
+                >
+                    <div className="p-4 w-full h-full dark:bg-neutral-900">
+                        <nav className="pb-4">
+                            <ul className="list-none m-0 flex flex-col gap-y-1">{allowedMenuItems.map((item) => renderMenuItem(item))}</ul>
+                        </nav>
+
+                        <hr className="border-gray-200" />
+                        <div className="flex justify-center pt-4">
+                            <Button
+                                variant="transparent"
+                                className={cn('inline-flex px-4 py-2 border-none', {
+                                    'w-full gap-x-2': menuSize !== 'small',
+                                })}
+                                onClick={() => toggleMenuSize()}
+                            >
+                                <ArrowRightToLine strokeWidth={1} size={24} className={cn(menuSize === 'large' && 'rotate-180')} />
+                                <span className={cn({ 'sr-only': menuSize === 'small' })}>Collapse</span>
+                            </Button>
+                        </div>
                     </div>
-                </div>
-            </SimpleBar>
+                </SimpleBar>
+            </div>
         </>
     );
 }
