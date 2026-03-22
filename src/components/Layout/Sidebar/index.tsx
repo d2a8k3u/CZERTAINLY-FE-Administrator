@@ -319,11 +319,11 @@ function getAllowedMenuItems(allowedResources?: Resource[]): MenuItemMapping[] {
     // 3. It has a child, which is shown based on rules 1 and 2.
     for (const mapping of menuItemMappings) {
         if ('children' in mapping) {
-            mapping.children = mapping.children.filter((el) => {
+            const filteredChildren = mapping.children.filter((el) => {
                 return !!el.requiredResources?.some((resource) => allowedResources.includes(resource));
             });
-            if (mapping.children.length > 0) {
-                allowedLinks.push(mapping);
+            if (filteredChildren.length > 0) {
+                allowedLinks.push({ ...mapping, children: filteredChildren });
             }
             continue;
         }
