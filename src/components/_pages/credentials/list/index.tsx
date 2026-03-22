@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRunOnSuccessfulFinish } from 'utils/common-hooks';
-import { useDispatch, useSelector } from 'react-redux';
+import { useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import { Link } from 'react-router';
 import Badge from 'components/Badge';
 
@@ -13,71 +12,41 @@ import { WidgetButtonProps } from 'components/WidgetButtons';
 import CustomTable, { TableDataRow, TableHeader } from 'components/CustomTable';
 import Dialog from 'components/Dialog';
 import { LockWidgetNameEnum } from 'types/user-interface';
+import { useListPageState } from 'utils/use-list-page-state';
 
 function CredentialList() {
-    const dispatch = useDispatch();
-
-    const checkedRows = useSelector(selectors.checkedRows);
     const credentials = useSelector(selectors.credentials);
 
-    const isFetching = useSelector(selectors.isFetchingList);
-    const isDeleting = useSelector(selectors.isDeleting);
-    const isBulkDeleting = useSelector(selectors.isBulkDeleting);
-    const isCreating = useSelector(selectors.isCreating);
-    const createCredentialSucceeded = useSelector(selectors.createCredentialSucceeded);
-    const isUpdating = useSelector(selectors.isUpdating);
-    const updateCredentialSucceeded = useSelector(selectors.updateCredentialSucceeded);
-
-    const isBusy = isFetching || isDeleting || isBulkDeleting;
-
-    const [confirmDelete, setConfirmDelete] = useState<boolean>(false);
-    const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
-    const [editingCredentialId, setEditingCredentialId] = useState<string | undefined>(undefined);
-
-    const getFreshData = useCallback(() => {
-        dispatch(actions.setCheckedRows({ checkedRows: [] }));
-        dispatch(actions.clearDeleteErrorMessages());
-        dispatch(actions.listCredentials());
-    }, [dispatch]);
-
-    useEffect(() => {
-        getFreshData();
-    }, [getFreshData]);
-
-    useRunOnSuccessfulFinish(isCreating, createCredentialSucceeded, () => {
-        setIsAddModalOpen(false);
-        getFreshData();
-    });
-    useRunOnSuccessfulFinish(isUpdating, updateCredentialSucceeded, () => {
-        setEditingCredentialId(undefined);
-        getFreshData();
-    });
-
-    const handleOpenAddModal = useCallback(() => {
-        setIsAddModalOpen(true);
-    }, []);
-
-    const handleCloseAddModal = useCallback(() => {
-        setIsAddModalOpen(false);
-        setEditingCredentialId(undefined);
-    }, []);
-
-    const onAddClick = useCallback(() => {
-        handleOpenAddModal();
-    }, [handleOpenAddModal]);
-
-    const onDeleteConfirmed = useCallback(() => {
-        setConfirmDelete(false);
-        dispatch(actions.clearDeleteErrorMessages());
-        dispatch(actions.bulkDeleteCredentials({ uuids: checkedRows }));
-    }, [dispatch, checkedRows]);
-
-    const setCheckedRows = useCallback(
-        (rows: (string | number)[]) => {
-            dispatch(actions.setCheckedRows({ checkedRows: rows as string[] }));
+    const {
+        checkedRows,
+        isBusy,
+        confirmDelete,
+        setConfirmDelete,
+        isAddModalOpen,
+        editingEntityId,
+        getFreshData,
+        handleOpenFormModal,
+        handleCloseFormModal,
+        onDeleteConfirmed,
+        setCheckedRows,
+    } = useListPageState({
+        selectors: {
+            checkedRows: selectors.checkedRows,
+            isFetchingList: selectors.isFetchingList,
+            isDeleting: selectors.isDeleting,
+            isBulkDeleting: selectors.isBulkDeleting,
+            isCreating: selectors.isCreating,
+            isUpdating: selectors.isUpdating,
+            createSucceeded: selectors.createCredentialSucceeded,
+            updateSucceeded: selectors.updateCredentialSucceeded,
         },
-        [dispatch],
-    );
+        actions: {
+            setCheckedRows: actions.setCheckedRows,
+            list: actions.listCredentials,
+            bulkDelete: actions.bulkDeleteCredentials,
+            clearDeleteErrorMessages: actions.clearDeleteErrorMessages,
+        },
+    });
 
     const buttons: WidgetButtonProps[] = useMemo(
         () => [
@@ -85,7 +54,7 @@ function CredentialList() {
                 icon: 'plus',
                 disabled: false,
                 tooltip: 'Create',
-                onClick: handleOpenAddModal,
+                onClick: handleOpenFormModal,
             },
             {
                 icon: 'trash',
@@ -96,7 +65,7 @@ function CredentialList() {
                 },
             },
         ],
-        [checkedRows, handleOpenAddModal],
+        [checkedRows, handleOpenFormModal, setConfirmDelete],
     );
 
     const credentialRowHeaders: TableHeader[] = useMemo(
@@ -179,11 +148,11 @@ function CredentialList() {
             />
 
             <Dialog
-                isOpen={isAddModalOpen || !!editingCredentialId}
-                toggle={handleCloseAddModal}
-                caption={editingCredentialId ? 'Edit Credential' : 'Create Credential'}
+                isOpen={isAddModalOpen || !!editingEntityId}
+                toggle={handleCloseFormModal}
+                caption={editingEntityId ? 'Edit Credential' : 'Create Credential'}
                 size="xl"
-                body={<CredentialForm credentialId={editingCredentialId} onCancel={handleCloseAddModal} onSuccess={handleCloseAddModal} />}
+                body={<CredentialForm credentialId={editingEntityId} onCancel={handleCloseFormModal} onSuccess={handleCloseFormModal} />}
             />
         </>
     );
