@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { Outlet } from 'react-router';
 
 import Alerts from 'components/Alerts';
@@ -7,6 +7,7 @@ import GlobalModal from 'components/GlobalModal';
 import Footer from 'components/Layout/Footer';
 import Header from 'components/Layout/Header';
 import Sidebar from 'components/Layout/Sidebar';
+import Spinner from 'components/Spinner';
 import { useSelector } from 'react-redux';
 import { selectors } from 'ducks/auth';
 
@@ -24,7 +25,9 @@ function Layout() {
                 <Sidebar allowedResources={profile?.permissions.allowedListings} />
                 <main className="flex flex-col bg-[var(--main-background-color)] w-[calc(100%-var(--sidebar-width))] p-4 md:p-8 !pb-0 dark:bg-gray-900">
                     <ErrorBoundary>
-                        <Outlet />
+                        <Suspense fallback={<Spinner size="lg" />}>
+                            <Outlet />
+                        </Suspense>
                     </ErrorBoundary>
                     <div className="grow-1" />
                     <Footer />

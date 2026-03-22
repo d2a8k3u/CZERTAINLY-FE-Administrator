@@ -25,6 +25,15 @@ export default defineConfig(async () => {
         },
         build: {
             outDir: 'build',
+            rollupOptions: {
+                output: {
+                    manualChunks(id) {
+                        if (id.includes('node_modules')) {
+                            return 'vendor';
+                        }
+                    },
+                },
+            },
         },
         base: './',
         resolve: {
